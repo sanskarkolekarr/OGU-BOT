@@ -213,10 +213,13 @@ async def on_login(event):
         await event.respond("Invalid amount.")
         return
 
-    title = f"mm chat {amount_str}"
-
     try:
         chat = await event.get_chat()
+        current_title = getattr(chat, "title", "") or "Chat"
+        base_title = current_title.split(" | $")[0].strip()
+        clean_amount = amount_str.replace("$", "").strip()
+        title = f"{base_title} | ${clean_amount}"
+
         if event.is_channel:
             await bot(EditTitleRequest(channel=chat, title=title))
         else:
