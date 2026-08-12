@@ -32,6 +32,12 @@ TOS = (
 )
 
 
+UNAUTHORIZED_MSG = (
+    "To get access to this bot, DM @hackeez!\n"
+    "To know more about the bot, visit @voidsplace"
+)
+
+
 def is_admin(user_id):
     return user_id in ADMIN_IDS
 
@@ -61,6 +67,7 @@ async def safe_respond(event, text):
 @bot.on(events.NewMessage(pattern=r"^/(help|start)\b"))
 async def cmd_help(event):
     if not has_access(event.sender_id):
+        await event.respond(UNAUTHORIZED_MSG)
         return
 
     lines = []
@@ -206,7 +213,13 @@ async def on_login(event):
     if not event.is_group:
         return
     if not has_access(event.sender_id):
+        await event.respond(UNAUTHORIZED_MSG)
         return
+
+
+@bot.on(events.NewMessage(func=lambda e: e.is_private and not has_access(e.sender_id)))
+async def unauthorized_private(event):
+    await event.respond(UNAUTHORIZED_MSG)
 
     match = LOGIN_PATTERN.match(event.raw_text.strip())
     if not match:
