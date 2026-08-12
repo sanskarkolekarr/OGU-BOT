@@ -1,6 +1,7 @@
+import os
 import sqlite3
 
-DB_PATH = "accounts.db"
+DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "accounts.db")
 
 
 def _connect():
@@ -73,15 +74,17 @@ def remove_user(user_id):
 def list_users():
     conn = _connect()
     rows = conn.execute("SELECT * FROM users ORDER BY added_at").fetchall()
+    result = [dict(row) for row in rows]
     conn.close()
-    return rows
+    return result
 
 
 def get_user(user_id):
     conn = _connect()
     row = conn.execute("SELECT * FROM users WHERE user_id = ?", (user_id,)).fetchone()
+    result = dict(row) if row else None
     conn.close()
-    return row
+    return result
 
 
 def set_tos(user_id, text):

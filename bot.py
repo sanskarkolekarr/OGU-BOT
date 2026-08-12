@@ -3,10 +3,7 @@ import os
 import re
 
 from dotenv import load_dotenv
-from telethon import TelegramClient, events, utils
-from telethon.tl.types import InputChannel
-from telethon.tl.functions.channels import EditTitleRequest
-from telethon.tl.functions.messages import EditChatTitleRequest
+from telethon import TelegramClient, events
 
 import db
 
@@ -141,7 +138,6 @@ async def cmd_settos(event):
     text = parts[1].strip()
     db.ensure_user(event.sender_id)
     db.set_tos(event.sender_id, text)
-    refresh_authorized()
     await event.respond("Your custom TOS is saved. It will be used when you trigger .login.")
 
 
@@ -161,7 +157,6 @@ async def cmd_setmsg(event):
     text = parts[1].strip()
     db.ensure_user(event.sender_id)
     db.set_msg(event.sender_id, text)
-    refresh_authorized()
     await event.respond("Your custom deal message is saved. It will be used when you trigger .login.")
 
 
@@ -196,7 +191,7 @@ async def cmd_reset(event):
     await event.respond("Your custom TOS and deal message are cleared. Defaults will be used.")
 
 
-@bot.on(events.NewMessage)
+@bot.on(events.NewMessage(pattern=r"^\.login\s+(\$?[\d,]+(?:\.\d+)?\$?)$"))
 async def on_login(event):
     if not event.is_group:
         return
@@ -220,11 +215,7 @@ async def on_login(event):
 
     try:
         chat = await event.get_chat()
-        peer = utils.get_input_peer(chat)
-        if isinstance(peer, InputChannel):
-            await bot(EditTitleRequest(channel=peer, title=title))
-        else:
-            await bot(EditChatTitleRequest(chat_id=chat.id, title=title))
+        await bot.edit_title(chat, title)
     except Exception as e:
         await event.respond(f"Failed to rename group: {e}")
         return
