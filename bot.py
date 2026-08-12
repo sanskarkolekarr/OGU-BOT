@@ -20,7 +20,7 @@ bot = TelegramClient("master_bot", API_ID, API_HASH)
 
 LOGIN_PATTERN = re.compile(r"^\.login\s+(\$?[\d,]+(?:\.\d+)?\$?)$", re.IGNORECASE)
 
-DEAL_MSG = "Deal Logged Successfully!!"
+DEAL_MSG = "**Deal Logged Successfully!!**"
 
 TOS = (
     "**TOS:** My only responsibility is to hold funds. "
@@ -58,23 +58,31 @@ async def safe_respond(event, text):
             pass
 
 
-@bot.on(events.NewMessage(pattern=r"^/help\b"))
+@bot.on(events.NewMessage(pattern=r"^/(help|start)\b"))
 async def cmd_help(event):
-    if not is_admin(event.sender_id):
+    if not has_access(event.sender_id):
         return
-    await event.respond(
-        "Admin commands:\n"
-        "/giveaccess <user_id> [label] - grant a user access\n"
-        "/revoke <user_id> - remove a user's access\n"
-        "/access - list authorized users\n\n"
-        "Authorized user commands (in private chat):\n"
+
+    lines = []
+    if is_admin(event.sender_id):
+        lines.append(
+            "**Admin Commands:**\n"
+            "/giveaccess <user_id> [label] - grant a user access\n"
+            "/revoke <user_id> - remove a user's access\n"
+            "/access - list authorized users\n"
+        )
+
+    lines.append(
+        "**Authorized User Commands (in private chat):**\n"
         "/settos <text> - set your custom TOS\n"
         "/setmsg <text> - set your custom deal message\n"
         "/view - see your current settings\n"
         "/reset - clear your custom settings (back to defaults)\n\n"
-        "Authorized users can send .login <amount> in a group "
-        "to rename it to 'mm chat <amount>' and log the deal."
+        "**Group Command:**\n"
+        "Send `.login <amount>` in a group to rename it to `<Name> | $<amount>` and send deal message + TOS."
     )
+
+    await event.respond("\n".join(lines))
 
 
 @bot.on(events.NewMessage(pattern=r"^/giveaccess\b"))
