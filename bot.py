@@ -3,8 +3,8 @@ import os
 import re
 
 from dotenv import load_dotenv
-from telethon import TelegramClient, events
-from telethon.tl.types import Channel
+from telethon import TelegramClient, events, utils
+from telethon.tl.types import InputChannel
 from telethon.tl.functions.channels import EditTitleRequest
 from telethon.tl.functions.messages import EditChatTitleRequest
 
@@ -37,8 +37,26 @@ def is_admin(user_id):
     return user_id in ADMIN_IDS
 
 
+AUTHORIZED = set()
+
+
+def refresh_authorized():
+    global AUTHORIZED
+    AUTHORIZED = set(db.load_authorized())
+
+
 def has_access(user_id):
-    return is_admin(user_id) or db.is_authorized(user_id)
+    return is_admin(user_id) or user_id in AUTHORIZED
+
+
+async def safe_respond(event, text):
+    try:
+        await event.respond(text)
+    except Exception:
+        try:
+            await event.respond(text, parse_mode=None)
+        except Exception:
+            pass
 
 
 @bot.on(events.NewMessage(pattern=r"^/help\b"))
@@ -65,7 +83,7 @@ async def cmd_giveaccess(event):
     if not is_admin(event.sender_id):
         return
 
-    parts = event.raw_text.strip().split()
+    parts = event.raw_text.strip().split(maxsplit=2)
     if len(parts) < 2 or not parts[1].lstrip("+").isdigit():
         await event.respond("Usage: /giveaccess <user_id> [label]")
         return
@@ -73,6 +91,7 @@ async def cmd_giveaccess(event):
     user_id = int(parts[1].lstrip("+"))
     label = parts[2] if len(parts) > 2 else ""
     db.add_user(user_id, label)
+    refresh_authorized()
     await event.respond(f"Access granted to {user_id}.")
 
 
@@ -88,6 +107,7 @@ async def cmd_revoke(event):
 
     user_id = int(parts[1].lstrip("+"))
     db.remove_user(user_id)
+    refresh_authorized()
     await event.respond(f"Access revoked from {user_id}.")
 
 
@@ -121,6 +141,7 @@ async def cmd_settos(event):
     text = parts[1].strip()
     db.ensure_user(event.sender_id)
     db.set_tos(event.sender_id, text)
+    refresh_authorized()
     await event.respond("Your custom TOS is saved. It will be used when you trigger .login.")
 
 
@@ -140,6 +161,7 @@ async def cmd_setmsg(event):
     text = parts[1].strip()
     db.ensure_user(event.sender_id)
     db.set_msg(event.sender_id, text)
+    refresh_authorized()
     await event.respond("Your custom deal message is saved. It will be used when you trigger .login.")
 
 
@@ -154,9 +176,10 @@ async def cmd_view(event):
     user = db.get_user(event.sender_id)
     msg = user["msg"] if user and user["msg"] else DEAL_MSG
     tos = user["tos"] if user and user["tos"] else TOS
-    await event.respond(
+    await safe_respond(
+        event,
         f"Your deal message:\n{msg}\n\nYour TOS:\n{tos}\n\n"
-        "Defaults are used where you have not customized."
+        "Defaults are used where you have not customized.",
     )
 
 
@@ -184,12 +207,22 @@ async def on_login(event):
     if not match:
         return
 
-    title = f"mm chat {match.group(1)}"
+    amount_str = match.group(1)
+    try:
+        amount_val = float(amount_str.replace("$", "").replace(",", ""))
+    except ValueError:
+        return
+    if amount_val <= 0:
+        await event.respond("Invalid amount.")
+        return
+
+    title = f"mm chat {amount_str}"
 
     try:
         chat = await event.get_chat()
-        if isinstance(chat, Channel):
-            await bot(EditTitleRequest(chat_id=chat.id, title=title))
+        peer = utils.get_input_peer(chat)
+        if isinstance(peer, InputChannel):
+            await bot(EditTitleRequest(channel=peer, title=title))
         else:
             await bot(EditChatTitleRequest(chat_id=chat.id, title=title))
     except Exception as e:
@@ -200,12 +233,17 @@ async def on_login(event):
     msg = user["msg"] if user and user["msg"] else DEAL_MSG
     tos = user["tos"] if user and user["tos"] else TOS
 
-    await event.respond(msg)
-    await event.respond(tos)
+    await safe_respond(event, msg)
+    await safe_respond(event, tos)
 
 
 async def main():
+    if not BOT_TOKEN:
+        print("BOT_TOKEN is missing in .env. Get one from @BotFather.")
+        return
+
     db.init_db()
+    refresh_authorized()
     await bot.start(bot_token=BOT_TOKEN)
     print("Ogu system bot is running...")
     try:

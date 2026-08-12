@@ -38,11 +38,19 @@ def is_authorized(user_id):
 def add_user(user_id, label=""):
     conn = _connect()
     conn.execute(
-        "INSERT OR REPLACE INTO users (user_id, label) VALUES (?, ?)",
+        "INSERT INTO users (user_id, label) VALUES (?, ?) "
+        "ON CONFLICT(user_id) DO UPDATE SET label = excluded.label",
         (user_id, label),
     )
     conn.commit()
     conn.close()
+
+
+def load_authorized():
+    conn = _connect()
+    rows = conn.execute("SELECT user_id FROM users").fetchall()
+    conn.close()
+    return [row["user_id"] for row in rows]
 
 
 def ensure_user(user_id, label=""):
