@@ -208,6 +208,11 @@ async def cmd_reset(event):
     await event.respond("Your custom TOS and deal message are cleared. Defaults will be used.")
 
 
+@bot.on(events.NewMessage(func=lambda e: e.is_private and not has_access(e.sender_id)))
+async def unauthorized_private(event):
+    await event.respond(UNAUTHORIZED_MSG)
+
+
 @bot.on(events.NewMessage(pattern=r"^\.login\s+(\$?[\d,]+(?:\.\d+)?\$?)$"))
 async def on_login(event):
     if not event.is_group:
@@ -215,11 +220,6 @@ async def on_login(event):
     if not has_access(event.sender_id):
         await event.respond(UNAUTHORIZED_MSG)
         return
-
-
-@bot.on(events.NewMessage(func=lambda e: e.is_private and not has_access(e.sender_id)))
-async def unauthorized_private(event):
-    await event.respond(UNAUTHORIZED_MSG)
 
     match = LOGIN_PATTERN.match(event.raw_text.strip())
     if not match:
@@ -237,7 +237,7 @@ async def unauthorized_private(event):
     try:
         chat = await event.get_chat()
         current_title = getattr(chat, "title", "") or "Chat"
-        base_title = current_title.split(" | $")[0].strip()
+        base_title = current_title.split("|")[0].strip()
         clean_amount = amount_str.replace("$", "").strip()
         title = f"{base_title} | ${clean_amount}"
 
