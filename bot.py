@@ -3,7 +3,8 @@ import os
 import re
 
 from dotenv import load_dotenv
-from telethon import TelegramClient, events
+from telethon import TelegramClient, events, utils
+from telethon.tl.types import InputChannel
 from telethon.tl.functions.channels import EditTitleRequest
 from telethon.tl.functions.messages import EditChatTitleRequest
 
@@ -242,9 +243,11 @@ async def on_login(event):
         title = f"{base_title} | ${clean_amount}"
 
         if event.is_channel:
-            await bot(EditTitleRequest(channel=chat, title=title))
+            peer = utils.get_input_peer(chat)
+            await bot(EditTitleRequest(channel=peer, title=title))
         else:
             await bot(EditChatTitleRequest(chat_id=chat.id, title=title))
+        await event.message.delete()
     except Exception as e:
         await event.respond(f"Failed to rename group: {e}")
         return
