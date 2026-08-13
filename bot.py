@@ -238,15 +238,16 @@ async def on_login(event):
     try:
         chat = await event.get_chat()
         current_title = getattr(chat, "title", "") or "Chat"
-        base_title = current_title.split("|")[0].strip()
+        base_title = current_title.split("|")[0].strip() or "Chat"
         clean_amount = amount_str.replace("$", "").strip()
         title = f"{base_title} | ${clean_amount}"
 
-        if event.is_channel:
-            peer = utils.get_input_peer(chat)
-            await bot(EditTitleRequest(channel=peer, title=title))
-        else:
-            await bot(EditChatTitleRequest(chat_id=chat.id, title=title))
+        if title != current_title:
+            if event.is_channel:
+                peer = utils.get_input_peer(chat)
+                await bot(EditTitleRequest(channel=peer, title=title))
+            else:
+                await bot(EditChatTitleRequest(chat_id=chat.id, title=title))
         await event.message.delete()
     except Exception as e:
         await event.respond(f"Failed to rename group: {e}")
