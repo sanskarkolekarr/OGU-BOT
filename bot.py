@@ -265,6 +265,18 @@ async def main():
     db.init_db()
     refresh_authorized()
     await bot.start(bot_token=BOT_TOKEN)
+
+    me = await bot.get_me()
+    if me is None or not me.bot:
+        print(
+            "ERROR: The active session is not a bot (stale user session detected). "
+            "Stop this process and delete master_bot.session, then restart."
+        )
+        return
+
+    if not ADMIN_IDS:
+        print("WARNING: ADMIN_IDS is empty in .env - nobody can run admin commands.")
+
     print("Ogu system bot is running...")
     try:
         await bot.run_until_disconnected()
